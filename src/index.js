@@ -1,14 +1,21 @@
 const { GraphQLServer } = require('graphql-yoga');
+const { prisma } = require('./generated/prisma-client');
+
+async function main() {
+  const newLink = await prisma.createLink({
+    url: 'www.prisma.io',
+    description: 'Prisma replaces traditional ORMs',
+  });
+
+  console.log(`Created new link: ${newLink.url} (ID: ${newLink.id})`);
+
+  const allLinks = await prisma.links();
+  console.log(allLinks);
+}
+
+main().catch(e => console.error(e));
 
 // type definitions from your application schema
-
-let links = [{
-  id: 'link-0',
-  url: 'www.howtographql.com',
-  description: 'Fullstack tutorial for GraphQL',
-}];
-
-let idCount = links.length;
 
 // resolvers: This is a JavaScript object that mirrors the Query, 
 // Mutation and Subscription types and their fields from your 
@@ -17,25 +24,25 @@ let idCount = links.length;
 const resolvers = {
   Query: {
     info: () => `API for Hackernews Clone!`,
-    feed: () => links,
+    feed: () => (root, args, context, info) => {
+      return context.prisma.links();
+    },
   },
-  Mutation : {
-    post: (parent, args) => {
-      const link = {
-        id: `link-${idCount++}`,
-        description: args.description,
+  Mutation: {
+    post: (root, args, context) => {
+      return context.prisma.createLink({
         url: args.url,
-      }
-      links.push(link);
-      return link;
-    }
-  }
+        description: args.description,
+      })
+    },
+  },
 };
 
 // init server
 const server = new GraphQLServer({
   typeDefs: './src/schema.graphql',
   resolvers,
+  context: { prisma },
 });
 
 server.start(() => console.log(`Running server on port 4000..`));
